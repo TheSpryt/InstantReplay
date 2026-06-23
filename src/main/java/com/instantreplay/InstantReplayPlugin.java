@@ -76,7 +76,8 @@ public class InstantReplayPlugin extends Plugin
 	@Override
 	protected void startUp()
 	{
-		recorder = new ClipRecorder(config, drawManager, this::canCapture, this::onClipSaved, this::onClipError);
+		recorder = new ClipRecorder(config, drawManager, this::canCapture, this::mousePosition,
+			this::onClipSaved, this::onClipError);
 		recorder.start();
 		keyManager.registerKeyListener(manualHotkey);
 		clientThread.invokeLater(this::snapshotLevels);
@@ -97,6 +98,16 @@ public class InstantReplayPlugin extends Plugin
 	private boolean canCapture()
 	{
 		return client.getGameState() == GameState.LOGGED_IN;
+	}
+
+	private java.awt.Point mousePosition()
+	{
+		net.runelite.api.Point p = client.getMouseCanvasPosition();
+		if (p == null)
+		{
+			return null;
+		}
+		return new java.awt.Point(p.getX(), p.getY());
 	}
 
 	// ------------------------------------------------------------------

@@ -1,7 +1,9 @@
 package com.instantreplay;
 
+import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.Image;
+import java.awt.Point;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
@@ -19,6 +21,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageWriteParam;
@@ -46,6 +49,7 @@ class ClipRecorder
 	private final InstantReplayConfig config;
 	private final DrawManager drawManager;
 	private final BooleanSupplier canCapture;
+	private final Supplier<Point> mousePosition;
 	private final Consumer<File> onSaved;
 	private final Consumer<String> onError;
 
@@ -61,12 +65,13 @@ class ClipRecorder
 	private String activeReason;
 	private long lastClipMs;
 
-	ClipRecorder(InstantReplayConfig config, DrawManager drawManager,
-		BooleanSupplier canCapture, Consumer<File> onSaved, Consumer<String> onError)
+	ClipRecorder(InstantReplayConfig config, DrawManager drawManager, BooleanSupplier canCapture,
+		Supplier<Point> mousePosition, Consumer<File> onSaved, Consumer<String> onError)
 	{
 		this.config = config;
 		this.drawManager = drawManager;
 		this.canCapture = canCapture;
+		this.mousePosition = mousePosition;
 		this.onSaved = onSaved;
 		this.onError = onError;
 	}
@@ -142,14 +147,17 @@ class ClipRecorder
 			return;
 		}
 		final long now = System.currentTimeMillis();
-		p.execute(() -> processFrame(image, now));
+		// Read the mouse position on the render thread; the OS cursor is not part
+		// of the captured frame, so we draw our own marker at this point.
+		final Point mouse = config.drawCursor() ? mousePosition.get() : null;
+		p.execute(() -> processFrame(image, now, mouse));
 	}
 
-	private void processFrame(Image image, long now)
+	private void processFrame(Image image, long now, Point mouse)
 	{
 		try
 		{
-			BufferedImage scaled = scale(image);
+			BufferedImage scaled = scale(image, mouse);
 			byte[] jpeg = toJpeg(scaled);
 			RecordedFrame frame = new RecordedFrame(now, jpeg);
 
@@ -280,7 +288,7 @@ class ClipRecorder
 		return new File(RuneLite.RUNELITE_DIR, "instant-replay");
 	}
 
-	private BufferedImage scale(Image image)
+	private BufferedImage scale(Image image, Point mouse)
 	{
 		int sw = image.getWidth(null);
 		int sh = image.getHeight(null);
@@ -305,8 +313,26 @@ class ClipRecorder
 		g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
 		g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 		g.drawImage(image, 0, 0, targetW, targetH, null);
+
+		if (mouse != null && mouse.x >= 0 && mouse.y >= 0)
+		{
+			drawCursor(g, Math.round((float) mouse.x * targetW / sw), Math.round((float) mouse.y * targetH / sh));
+		}
+
 		g.dispose();
 		return dst;
+	}
+
+	/** Draws a simple arrow pointer with the tip at (x, y). */
+	private static void drawCursor(Graphics2D g, int x, int y)
+	{
+		int[] xs = {x, x, x + 4, x + 7, x + 9, x + 6, x + 11};
+		int[] ys = {y, y + 16, y + 12, y + 18, y + 17, y + 11, y + 11};
+		g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+		g.setColor(Color.WHITE);
+		g.fillPolygon(xs, ys, xs.length);
+		g.setColor(Color.BLACK);
+		g.drawPolygon(xs, ys, xs.length);
 	}
 
 	private byte[] toJpeg(BufferedImage image) throws IOException

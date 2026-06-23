@@ -28,6 +28,8 @@ save a clip on demand.
 - **Resolution** — vertical resolution; the client is downscaled to this height
   and never upscaled (default 720p).
 - **JPEG buffer quality** — trade memory use against clip quality.
+- **Draw cursor** — overlay a marker at the mouse position (the OS cursor is
+  not part of captured frames, so it is drawn by the plugin).
 
 **Triggers**
 - Manual save hotkey, on death, on collection log unlock, on level up, on

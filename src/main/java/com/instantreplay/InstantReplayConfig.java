@@ -105,6 +105,18 @@ public interface InstantReplayConfig extends Config
 		return 85;
 	}
 
+	@ConfigItem(
+		keyName = "drawCursor",
+		name = "Draw cursor",
+		description = "Draw a marker at the mouse position in saved clips. The operating system cursor is not part of captured frames, so this is rendered by the plugin.",
+		section = recordingSection,
+		position = 5
+	)
+	default boolean drawCursor()
+	{
+		return false;
+	}
+
 	// ------------------------------------------------------------------
 	// Triggers
 	// ------------------------------------------------------------------
