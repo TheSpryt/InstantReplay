@@ -57,6 +57,9 @@ class ClipRecorder
 	private ThreadPoolExecutor processor;
 	private ThreadPoolExecutor encoder;
 
+	// Mirrors the processor-thread `capturing` flag for cross-thread reads (overlay).
+	private volatile boolean recording;
+
 	// --- processor-thread-confined state ---
 	private final Deque<RecordedFrame> buffer = new ArrayDeque<>();
 	private boolean capturing;
@@ -96,7 +99,14 @@ class ClipRecorder
 		encoder = null;
 		buffer.clear();
 		capturing = false;
+		recording = false;
 		activeClip = null;
+	}
+
+	/** Whether a triggered clip is currently being captured (including its post-roll tail). */
+	boolean isRecording()
+	{
+		return recording;
 	}
 
 	/** Request a clip; safe to call from any thread (e.g. the client thread). */
@@ -210,6 +220,7 @@ class ClipRecorder
 		activeClip = new ArrayList<>(buffer);
 		activeReason = reason;
 		capturing = true;
+		recording = true;
 		postRollEndMs = now + postRollMs();
 		if (postRollMs() == 0)
 		{
@@ -224,6 +235,7 @@ class ClipRecorder
 			return;
 		}
 		capturing = false;
+		recording = false;
 		lastClipMs = System.currentTimeMillis();
 
 		final List<RecordedFrame> clip = activeClip;

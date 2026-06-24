@@ -17,13 +17,14 @@ import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
-import net.runelite.client.events.LootReceived;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.ItemStack;
 import net.runelite.client.input.KeyManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.loottracker.LootReceived;
 import net.runelite.client.ui.DrawManager;
+import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.HotkeyListener;
 
 @Slf4j
@@ -50,9 +51,14 @@ public class InstantReplayPlugin extends Plugin
 	private KeyManager keyManager;
 
 	@Inject
+	private OverlayManager overlayManager;
+
+	@Inject
 	private InstantReplayConfig config;
 
 	private ClipRecorder recorder;
+	private InstantReplayOverlay overlay;
+	private volatile long lastSavedAtMs = Long.MIN_VALUE;
 	private final Map<Skill, Integer> levels = new EnumMap<>(Skill.class);
 
 	private final HotkeyListener manualHotkey = new HotkeyListener(() -> config.manualHotkey())
@@ -79,6 +85,9 @@ public class InstantReplayPlugin extends Plugin
 		recorder = new ClipRecorder(config, drawManager, this::canCapture, this::mousePosition,
 			this::onClipSaved, this::onClipError);
 		recorder.start();
+		overlay = new InstantReplayOverlay(config, this::canCapture,
+			() -> recorder != null && recorder.isRecording(), () -> lastSavedAtMs);
+		overlayManager.add(overlay);
 		keyManager.registerKeyListener(manualHotkey);
 		clientThread.invokeLater(this::snapshotLevels);
 	}
@@ -87,6 +96,11 @@ public class InstantReplayPlugin extends Plugin
 	protected void shutDown()
 	{
 		keyManager.unregisterKeyListener(manualHotkey);
+		if (overlay != null)
+		{
+			overlayManager.remove(overlay);
+			overlay = null;
+		}
 		if (recorder != null)
 		{
 			recorder.stop();
@@ -124,6 +138,7 @@ public class InstantReplayPlugin extends Plugin
 	}
 
 	@Subscribe
+	@SuppressWarnings("deprecation") // Skill.OVERALL is deprecated but still emitted; we skip it deliberately.
 	public void onStatChanged(StatChanged event)
 	{
 		Skill skill = event.getSkill();
@@ -225,6 +240,7 @@ public class InstantReplayPlugin extends Plugin
 		}
 	}
 
+	@SuppressWarnings("deprecation") // Skill.OVERALL is deprecated but still returned by Skill.values().
 	private void snapshotLevels()
 	{
 		for (Skill skill : Skill.values())
@@ -238,8 +254,9 @@ public class InstantReplayPlugin extends Plugin
 
 	private void onClipSaved(File file)
 	{
+		lastSavedAtMs = System.currentTimeMillis();
 		log.info("Instant Replay saved clip to {}", file);
-		if (config.notify())
+		if (config.notifyOnSave())
 		{
 			clientThread.invokeLater(() -> client.addChatMessage(
 				net.runelite.api.ChatMessageType.GAMEMESSAGE,

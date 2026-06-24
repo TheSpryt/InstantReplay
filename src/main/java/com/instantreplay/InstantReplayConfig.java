@@ -253,7 +253,19 @@ public interface InstantReplayConfig extends Config
 		section = outputSection,
 		position = 1
 	)
-	default boolean notify()
+	default boolean notifyOnSave()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = "showStatusOverlay",
+		name = "Show status overlay",
+		description = "Show a small on-screen indicator when Instant Replay is armed, recording a clip, or has just saved one.",
+		section = outputSection,
+		position = 2
+	)
+	default boolean showStatusOverlay()
 	{
 		return true;
 	}

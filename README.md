@@ -40,6 +40,21 @@ save a clip on demand.
 - **Save folder** — defaults to the RuneLite directory's `instant-replay`
   folder.
 - **Chat message on save** — confirms each saved clip in-game.
+- **Show status overlay** — a small on-screen indicator showing when the plugin
+  is armed, actively recording a clip, or has just saved one.
+
+## Usage
+
+1. Enable **Instant Replay** in the RuneLite plugin list.
+2. Open the plugin's config panel and pick which events should save a clip
+   (and, optionally, set a **Manual save hotkey** for on-demand capture).
+3. Play normally. When a trigger fires, the plugin captures the surrounding
+   seconds and writes an `.mp4` to your save folder. The status overlay flashes
+   green and — if enabled — a chat message confirms the save.
+
+Clips are named `<timestamp>_<reason>.mp4` (for example
+`2026-06-23_18-30-05_death.mp4`), so they sort chronologically and are easy to
+find after a session.
 
 ## Building
 
@@ -47,6 +62,18 @@ save a clip on demand.
 ./gradlew build          # compile + assemble
 ./gradlew run            # launch a dev client with the plugin side-loaded
 ```
+
+## Changelog
+
+### Unreleased
+- Status overlay showing armed / recording / saved state, with a brief flash
+  when a clip is written (toggle under **Output**).
+- Optional cursor marker drawn into saved clips.
+
+### 1.0.0
+- Initial release: rolling in-memory buffer with pure-Java H.264/MP4 encoding,
+  automatic triggers (death, collection log, level up, valuable drop, pet,
+  quest, combat task) and a manual save hotkey.
 
 ## License
 
